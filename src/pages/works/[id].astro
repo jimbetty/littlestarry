@@ -1,0 +1,35 @@
+---
+import Base from '../../layouts/Base.astro';
+import { getCollection, render } from 'astro:content';
+
+export async function getStaticPaths() {
+  const works = await getCollection('works');
+  return works.map((w) => ({ params: { id: w.id }, props: { work: w } }));
+}
+const { work } = Astro.props;
+const { Content } = await render(work);
+const { title, summary, tools, hue, demo, date } = work.data;
+---
+<Base title={title} description={summary}>
+  <div class="cover work-hero" style={`--h:${hue}`} transition:name={`work-cover-${work.id}`}>
+    <div class="cover-inner"></div>
+    <span class="cover-label" style="font-size:clamp(26px,4vw,44px);left:28px;bottom:22px">{title}</span>
+  </div>
+  <div class="article" style="margin-top:48px">
+    <div class="meta" data-reveal>
+      <span>{date.toISOString().slice(0, 10)}</span>
+      {tools.map((t) => <span class="tag">{t}</span>)}
+    </div>
+    <p class="lead" data-reveal style="margin-top:20px">{summary}</p>
+    {demo && <p data-reveal><a class="btn" href={demo} data-astro-reload>全屏打开 ↗</a></p>}
+  </div>
+  {demo && (
+    <div class="demo" data-reveal>
+      <iframe src={demo} title={title} loading="lazy"></iframe>
+    </div>
+  )}
+  <div class="article prose" data-reveal>
+    <Content />
+  </div>
+  <p class="article" style="margin-top:48px"><a class="more" href="/works/"><span>←</span> 返回作品</a></p>
+</Base>
