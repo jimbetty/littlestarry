@@ -1,0 +1,14 @@
+---
+import Base from '../../layouts/Base.astro';
+import WorkCard from '../../components/WorkCard.astro';
+import { getCollection } from 'astro:content';
+const works = (await getCollection('works')).sort((a, b) => a.data.order - b.data.order);
+---
+<Base title="作品">
+  <p class="eyebrow" data-reveal>Works</p>
+  <h1 data-reveal>AI 作品</h1>
+  <p class="lead" data-reveal>每一件都是和 AI 一起做出来的。点开可以直接玩或看。</p>
+  <div class="grid section" style="margin-top:56px">
+    {works.map((w) => <WorkCard id={w.id} {...w.data} />)}
+  </div>
+</Base>
