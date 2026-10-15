@@ -1,0 +1,51 @@
+---
+import { ClientRouter } from 'astro:transitions';
+import Header from '../components/Header.astro';
+import '../styles/global.css';
+
+interface Props { title?: string; description?: string; }
+const { title, description = '夜星河的 AI 作品与博客' } = Astro.props;
+const fullTitle = title ? `${title} · littlestarry` : 'littlestarry · 夜星河';
+---
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{fullTitle}</title>
+    <meta name="description" content={description} />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="canonical" href={new URL(Astro.url.pathname, Astro.site)} />
+    <script is:inline>
+      (function () {
+        var d = document.documentElement;
+        var t = localStorage.getItem('ls-theme') || (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+        d.dataset.theme = t;
+        d.classList.add('js');
+        document.addEventListener('astro:after-swap', function () {
+          d.dataset.theme = localStorage.getItem('ls-theme') || t;
+          d.classList.add('js');
+        });
+      })();
+    </script>
+    <ClientRouter />
+  </head>
+  <body>
+    <div class="progress" id="progress" transition:persist></div>
+    <Header />
+    <main transition:name="page">
+      <div class="wrap">
+        <slot />
+      </div>
+    </main>
+    <footer class="site-footer">
+      <div class="wrap">
+        <span>© {new Date().getFullYear()} littlestarry</span>
+        <a href="https://github.com/jimbetty/littlestarry" class="more">GitHub <span>↗</span></a>
+      </div>
+    </footer>
+    <script>
+      import '../scripts/motion.ts';
+    </script>
+  </body>
+</html>
