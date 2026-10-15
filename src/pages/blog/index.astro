@@ -1,0 +1,12 @@
+---
+import Base from '../../layouts/Base.astro';
+import PostList from '../../components/PostList.astro';
+import { getCollection } from 'astro:content';
+const posts = (await getCollection('blog')).sort((a, b) => +b.data.date - +a.data.date);
+---
+<Base title="博客">
+  <p class="eyebrow" data-reveal>Blog</p>
+  <h1 data-reveal>博客</h1>
+  <p class="lead" data-reveal>做作品时的过程、踩过的坑，和一些零碎想法。</p>
+  <div style="margin-top:56px"><PostList posts={posts} /></div>
+</Base>
