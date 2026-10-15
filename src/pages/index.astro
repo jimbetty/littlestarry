@@ -1,0 +1,32 @@
+---
+import Base from '../layouts/Base.astro';
+import WorkCard from '../components/WorkCard.astro';
+import PostList from '../components/PostList.astro';
+import { getCollection } from 'astro:content';
+
+const works = (await getCollection('works')).sort((a, b) => a.data.order - b.data.order).slice(0, 3);
+const posts = (await getCollection('blog')).sort((a, b) => +b.data.date - +a.data.date).slice(0, 3);
+---
+<Base>
+  <p class="eyebrow" data-reveal>夜星河 · littlestarry</p>
+  <h1 data-reveal>用 AI 做东西，<br />顺手写下来。</h1>
+  <p class="lead" data-reveal>这里收集我用 AI 做的作品：游戏、图像、小工具，以及做它们时的笔记。</p>
+
+  <section class="section">
+    <div class="section-head" data-reveal>
+      <h2>精选作品</h2>
+      <a href="/works/" class="more">全部作品 <span>→</span></a>
+    </div>
+    <div class="grid">
+      {works.map((w) => <WorkCard id={w.id} {...w.data} />)}
+    </div>
+  </section>
+
+  <section class="section">
+    <div class="section-head" data-reveal>
+      <h2>最新文章</h2>
+      <a href="/blog/" class="more">全部文章 <span>→</span></a>
+    </div>
+    <PostList posts={posts} />
+  </section>
+</Base>
