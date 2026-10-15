@@ -1,0 +1,14 @@
+---
+interface Props { id: string; title: string; summary: string; tools: string[]; hue: number; }
+const { id, title, summary, tools, hue } = Astro.props;
+---
+<a href={`/works/${id}/`} class="card" data-reveal>
+  <div class="cover" style={`--h:${hue}`} transition:name={`work-cover-${id}`}>
+    <div class="cover-inner"></div>
+    <span class="cover-label">{title}</span>
+  </div>
+  <div class="card-body">
+    <p>{summary}</p>
+    <div class="tags">{tools.map((t) => <span class="tag">{t}</span>)}</div>
+  </div>
+</a>
