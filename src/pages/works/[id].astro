@@ -25,7 +25,7 @@ const { title, summary, tools, hue, demo, date } = work.data;
   </div>
   {demo && (
     <div class="demo" data-reveal>
-      <iframe src={demo} title={title} loading="lazy"></iframe>
+      <iframe data-src={demo} title={title}></iframe>
     </div>
   )}
   <div class="article prose" data-reveal>
