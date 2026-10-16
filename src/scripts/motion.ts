@@ -1,5 +1,6 @@
 import { gsap } from 'gsap';
 import Lenis from 'lenis';
+import { setupHero, teardownHero } from './hero';
 
 const reduce = () => window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
@@ -112,10 +113,12 @@ function setupLenis() {
   if (lenis || reduce() || matchMedia('(pointer: coarse)').matches) return;
   lenis = new Lenis({ lerp: 0.12, wheelMultiplier: 1, smoothWheel: true });
   lenis.on('scroll', onScroll);
+  (window as any).__lenis = lenis;
   gsap.ticker.add((t) => lenis!.raf(t * 1000));
   gsap.ticker.lagSmoothing(0);
 }
 document.addEventListener('astro:before-preparation', () => lenis?.stop());
+document.addEventListener('astro:before-swap', () => teardownHero());
 document.addEventListener('astro:after-swap', () => {
   // the router has already set the scroll position; sync Lenis to it with no animation
   lenis?.scrollTo(scrollY, { immediate: true, force: true });
@@ -167,13 +170,13 @@ function loadDeferred() {
 }
 
 let first = true;
-document.addEventListener('astro:after-swap', () => enter(aboveFold(), true));
+document.addEventListener('astro:after-swap', () => { enter(aboveFold(), true); setupHero(false); });
 document.addEventListener('astro:page-load', () => {
   setupLenis();
   setupNav(first);
   setupTheme();
   setupCards();
-  if (first) enter(aboveFold(), false);
+  if (first) { enter(aboveFold(), false); setupHero(true); }
   observeRest();
   onScroll();
   loadDeferred();
