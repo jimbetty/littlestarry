@@ -23,6 +23,9 @@
 
 * { box-sizing: border-box; }
 html { -webkit-text-size-adjust: 100%; scrollbar-gutter: stable; }
+html.lenis, html.lenis body { height: auto; }
+.lenis.lenis-smooth { scroll-behavior: auto !important; }
+.lenis.lenis-stopped { overflow: clip; }
 body {
   margin: 0;
   background: var(--bg);
@@ -41,8 +44,8 @@ main { min-height: calc(100vh - 160px); padding: 120px 0 80px; }
 /* ---------- header ---------- */
 .site-header {
   position: fixed; inset: 0 0 auto 0; z-index: 50;
-  backdrop-filter: saturate(160%) blur(16px);
-  -webkit-backdrop-filter: saturate(160%) blur(16px);
+  backdrop-filter: saturate(160%) blur(12px);
+  -webkit-backdrop-filter: saturate(160%) blur(12px);
   background: color-mix(in srgb, var(--bg) 72%, transparent);
   border-bottom: 1px solid transparent;
   transition: border-color 0.3s, background-color 0.5s var(--ease-out);
@@ -106,7 +109,7 @@ h2 { font-size: clamp(24px, 3vw, 32px); letter-spacing: -0.02em; margin: 0 0 24p
     radial-gradient(90% 80% at 85% 90%, hsl(calc(var(--h) + 60) 80% 55%) 0%, transparent 60%),
     hsl(calc(var(--h) + 20) 40% 14%);
 }
-.cover-inner { position: absolute; inset: 0; transition: transform 0.9s var(--ease-out); }
+.cover-inner { position: absolute; inset: 0; transition: transform 0.9s var(--ease-out); will-change: transform; }
 .card:hover .cover-inner { transform: scale(1.06); }
 .cover-label {
   position: absolute; left: 20px; bottom: 16px; color: #fff; font-weight: 700; font-size: 22px;
@@ -122,9 +125,9 @@ h2 { font-size: clamp(24px, 3vw, 32px); letter-spacing: -0.02em; margin: 0 0 24p
 .posts li { border-bottom: 1px solid var(--line); }
 .post-link {
   display: grid; grid-template-columns: 1fr auto; gap: 24px; padding: 26px 4px; align-items: baseline;
-  transition: padding 0.45s var(--ease-out);
 }
-.post-link:hover { padding-left: 16px; }
+.post-link > div { transition: transform 0.45s var(--ease-out); }
+.post-link:hover > div { transform: translateX(12px); }
 .post-link h3 { margin: 0 0 6px; font-size: 21px; letter-spacing: -0.015em; transition: color 0.25s; }
 .post-link:hover h3 { color: var(--accent); }
 .post-link p { margin: 0; color: var(--muted); font-size: 15px; }
@@ -168,11 +171,13 @@ h2 { font-size: clamp(24px, 3vw, 32px); letter-spacing: -0.02em; margin: 0 0 24p
 /* ---------- view transitions ---------- */
 ::view-transition-old(root),
 ::view-transition-new(root) { animation: none; }
-::view-transition-old(page) { animation: vt-out 0.28s var(--ease-io) both; }
-::view-transition-new(page) { animation: vt-in 0.5s var(--ease-out) 0.06s both; }
-::view-transition-group(*) { animation-duration: 0.55s; animation-timing-function: var(--ease-out); }
-@keyframes vt-out { to { opacity: 0; transform: translateY(-10px); filter: blur(4px); } }
-@keyframes vt-in { from { opacity: 0; transform: translateY(16px); filter: blur(4px); } }
+/* old and new pages overlap (no gap, and no blur filter: blur repaints the whole page every frame) */
+::view-transition-old(page) { animation: vt-out 0.2s cubic-bezier(0.4, 0, 1, 1) both; }
+::view-transition-new(page) { animation: vt-in 0.42s var(--ease-out) both; }
+/* shared elements (blog title, work cover) keep their morph */
+::view-transition-group(*) { animation-duration: 0.55s; animation-timing-function: cubic-bezier(0.2, 0.9, 0.25, 1); }
+@keyframes vt-out { to { opacity: 0; transform: translateY(-6px); } }
+@keyframes vt-in { from { opacity: 0; transform: translateY(12px); } }
 
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after, ::view-transition-group(*), ::view-transition-old(*), ::view-transition-new(*) {
