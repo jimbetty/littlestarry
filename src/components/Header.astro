@@ -7,14 +7,22 @@ const links = [
 ];
 ---
 <header class="site-header" transition:persist transition:name="header">
-  <div class="wrap">
-    <a href="/" class="brand"><span class="brand-dot"></span>littlestarry</a>
-    <nav class="nav" aria-label="主导航">
-      <span class="nav-pill" aria-hidden="true"></span>
-      {links.map((l) => <a href={l.href} data-nav={l.href}>{l.label}</a>)}
+  <div class="header-inner">
+    <div class="header-left">
+      <a href="/" class="logo-mark" aria-label="littlestarry 首页">
+        <span></span><span></span><span></span><span></span><span></span><span></span>
+      </a>
+      <nav class="nav" aria-label="主导航">
+        <span class="nav-pill" aria-hidden="true"></span>
+        {links.map((l) => <a href={l.href} data-nav={l.href}>{l.label}</a>)}
+      </nav>
+    </div>
+    <a href="/" class="wordmark">littlestarry</a>
+    <div class="header-right">
       <button class="theme-btn" type="button" aria-label="切换主题" data-theme-toggle>
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg>
       </button>
-    </nav>
+      <a class="pill pill-dark pill-sm" href="https://github.com/jimbetty/littlestarry">GitHub</a>
+    </div>
   </div>
 </header>
