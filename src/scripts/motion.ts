@@ -1,4 +1,5 @@
 import { gsap } from 'gsap';
+import Lenis from 'lenis';
 
 const reduce = () => window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
@@ -86,46 +87,95 @@ function onScroll() {
 }
 window.addEventListener('scroll', onScroll, { passive: true });
 
-/* ---------- card spotlight follows the pointer ---------- */
+/* ---------- card spotlight follows the pointer (one write per frame) ---------- */
 function setupCards() {
   document.querySelectorAll<HTMLElement>('.card').forEach((c) => {
+    let raf = 0, x = 0, y = 0, rect: DOMRect | null = null;
+    c.addEventListener('pointerenter', () => { rect = c.getBoundingClientRect(); }, { passive: true });
     c.addEventListener('pointermove', (e) => {
-      const r = c.getBoundingClientRect();
-      c.style.setProperty('--mx', `${e.clientX - r.left}px`);
-      c.style.setProperty('--my', `${e.clientY - r.top}px`);
+      if (!rect) rect = c.getBoundingClientRect();
+      x = e.clientX - rect.left; y = e.clientY - rect.top;
+      if (raf) return;
+      raf = requestAnimationFrame(() => {
+        raf = 0;
+        c.style.setProperty('--mx', `${x}px`);
+        c.style.setProperty('--my', `${y}px`);
+      });
     }, { passive: true });
+    c.addEventListener('pointerleave', () => { rect = null; }, { passive: true });
   });
 }
 
-/* ---------- entrance: above the fold staggers in, the rest reveals on scroll ---------- */
+/* ---------- smooth wheel scrolling (desktop mouse/trackpad only) ---------- */
+let lenis: Lenis | null = null;
+function setupLenis() {
+  if (lenis || reduce() || matchMedia('(pointer: coarse)').matches) return;
+  lenis = new Lenis({ lerp: 0.12, wheelMultiplier: 1, smoothWheel: true });
+  lenis.on('scroll', onScroll);
+  gsap.ticker.add((t) => lenis!.raf(t * 1000));
+  gsap.ticker.lagSmoothing(0);
+}
+document.addEventListener('astro:before-preparation', () => lenis?.stop());
+document.addEventListener('astro:after-swap', () => {
+  // the router has already set the scroll position; sync Lenis to it with no animation
+  lenis?.scrollTo(scrollY, { immediate: true, force: true });
+  lenis?.start();
+});
+
+/* ---------- entrance ----------
+   first load: above-the-fold content staggers in.
+   in-site navigation: it rises in at the same moment the page cross-fades (not after),
+   so there is one motion instead of two in a row.
+   everything below the fold reveals on scroll. */
 let io: IntersectionObserver | null = null;
-function reveal() {
-  const els = [...document.querySelectorAll<HTMLElement>('[data-reveal]')];
+const shown = new WeakSet<Element>();
+function aboveFold() {
+  const fold = innerHeight * 0.95;
+  return [...document.querySelectorAll<HTMLElement>('[data-reveal]')]
+    .filter((el) => !shown.has(el) && el.getBoundingClientRect().top < fold);
+}
+function enter(els: HTMLElement[], fast: boolean) {
+  if (!els.length) return;
+  els.forEach((el) => shown.add(el));
   if (reduce()) { gsap.set(els, { opacity: 1 }); return; }
+  gsap.fromTo(els,
+    { opacity: 0, y: fast ? 14 : 22 },
+    { opacity: 1, y: 0, duration: fast ? 0.5 : 0.8, ease: 'power3.out',
+      stagger: fast ? 0.035 : 0.06, delay: fast ? 0 : 0.05, clearProps: 'transform', overwrite: true });
+}
+function observeRest() {
   io?.disconnect();
-  const fold = innerHeight * 0.92;
-  const now = els.filter((el) => el.getBoundingClientRect().top < fold);
-  const later = els.filter((el) => !now.includes(el));
-  gsap.fromTo(now,
-    { opacity: 0, y: 24 },
-    { opacity: 1, y: 0, duration: 0.9, ease: 'power3.out', stagger: 0.06, delay: 0.08, clearProps: 'transform' });
+  const rest = [...document.querySelectorAll<HTMLElement>('[data-reveal]')].filter((el) => !shown.has(el));
+  if (reduce()) { gsap.set(rest, { opacity: 1 }); return; }
   io = new IntersectionObserver((entries) => {
     const batch = entries.filter((e) => e.isIntersecting).map((e) => e.target as HTMLElement);
     if (!batch.length) return;
-    batch.forEach((el) => io!.unobserve(el));
+    batch.forEach((el) => { io!.unobserve(el); shown.add(el); });
     gsap.fromTo(batch,
-      { opacity: 0, y: 32 },
-      { opacity: 1, y: 0, duration: 0.9, ease: 'power3.out', stagger: 0.08, clearProps: 'transform' });
-  }, { rootMargin: '0px 0px -8% 0px' });
-  later.forEach((el) => io!.observe(el));
+      { opacity: 0, y: 24 },
+      { opacity: 1, y: 0, duration: 0.65, ease: 'power3.out', stagger: 0.05, clearProps: 'transform' });
+  }, { rootMargin: '0px 0px -4% 0px' });
+  rest.forEach((el) => io!.observe(el));
+}
+
+/* ---------- heavy embeds wait until the transition is over ---------- */
+function loadDeferred() {
+  const go = () => document.querySelectorAll<HTMLIFrameElement>('iframe[data-src]').forEach((f) => {
+    f.src = f.dataset.src!; f.removeAttribute('data-src');
+  });
+  ('requestIdleCallback' in window) ? requestIdleCallback(go, { timeout: 800 }) : setTimeout(go, 300);
 }
 
 let first = true;
+document.addEventListener('astro:after-swap', () => enter(aboveFold(), true));
 document.addEventListener('astro:page-load', () => {
+  setupLenis();
   setupNav(first);
   setupTheme();
   setupCards();
-  reveal();
+  if (first) enter(aboveFold(), false);
+  observeRest();
   onScroll();
+  loadDeferred();
   first = false;
 });
