@@ -5,6 +5,7 @@ import '../styles/global.css';
 
 interface Props { title?: string; description?: string; }
 const { title, description = '夜星河的 AI 作品与博客' } = Astro.props;
+const hasHero = Astro.slots.has('hero');
 const fullTitle = title ? `${title} · littlestarry` : 'littlestarry · 夜星河';
 ---
 <!doctype html>
@@ -33,7 +34,8 @@ const fullTitle = title ? `${title} · littlestarry` : 'littlestarry · 夜星�
   <body>
     <div class="progress" id="progress" transition:persist></div>
     <Header />
-    <main transition:name="page">
+    <main transition:name="page" class:list={{ 'has-hero': hasHero }}>
+      <slot name="hero" />
       <div class="wrap">
         <slot />
       </div>
