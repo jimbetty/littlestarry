@@ -1,10 +1,10 @@
 ---
-interface Props { id: string; title: string; summary: string; tools: string[]; hue: number; }
-const { id, title, summary, tools, hue } = Astro.props;
+interface Props { id: string; title: string; summary: string; tools: string[]; hue: number; cover?: string; }
+const { id, title, summary, tools, hue, cover } = Astro.props;
 ---
 <a href={`/works/${id}/`} class="card" data-reveal>
-  <div class="cover" style={`--h:${hue}`} transition:name={`work-cover-${id}`}>
-    <div class="cover-inner"></div>
+  <div class:list={["cover", { "has-img": cover }]} style={`--h:${hue}`} transition:name={`work-cover-${id}`}>
+    <div class="cover-inner">{cover && <img src={cover} alt="" loading="lazy" decoding="async" width="1200" height="750" />}</div>
     <span class="cover-label">{title}</span>
   </div>
   <div class="card-body">
