@@ -4,8 +4,9 @@ summary: 一个单文件的黑白像素动作肉鸽游戏，直接在浏览器�
 date: 2026-10-15
 tools: [HTML5 Canvas, JavaScript, AI 辅助]
 hue: 250
+cover: /covers/hollow-toll.webp
 demo: /play/hollow-toll/
-order: 1
+order: 4
 ---
 
 ## 关于这个作品
