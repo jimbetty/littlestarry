@@ -8,11 +8,11 @@ export async function getStaticPaths() {
 }
 const { work } = Astro.props;
 const { Content } = await render(work);
-const { title, summary, tools, hue, demo, date } = work.data;
+const { title, summary, tools, hue, demo, date, cover } = work.data;
 ---
 <Base title={title} description={summary}>
-  <div class="cover work-hero" style={`--h:${hue}`} transition:name={`work-cover-${work.id}`}>
-    <div class="cover-inner"></div>
+  <div class:list={["cover work-hero", { "has-img": cover }]} style={`--h:${hue}`} transition:name={`work-cover-${work.id}`}>
+    <div class="cover-inner">{cover && <img src={cover} alt="" decoding="async" fetchpriority="high" width="1200" height="750" />}</div>
     <span class="cover-label" style="font-size:clamp(26px,4vw,44px);left:28px;bottom:22px">{title}</span>
   </div>
   <div class="article" style="margin-top:48px">
