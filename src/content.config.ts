@@ -20,6 +20,7 @@ const works = defineCollection({
     tools: z.array(z.string()).default([]),
     hue: z.number().default(220),
     demo: z.string().optional(),
+    cover: z.string().optional(),
     order: z.number().default(99),
   }),
 });
