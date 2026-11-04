@@ -106,7 +106,8 @@ export const onRequest: PagesFunction<Env> = async ({ request, env, params }) =>
     const key = request.headers.get('x-edit-key') || '';
     const row = await db.prepare('SELECT scores, key_hash, updated_at FROM score_sheets WHERE ym = ? AND role = ? AND sub = ?')
       .bind(ym, role, sub).first<{ scores: string; key_hash: string; updated_at: number }>();
-    const mine = !!row && !!key && (await sha256(key)) === row.key_hash;
+    const adminOk = role === 'leader' && !!env.ADMIN_PASS && (await samePass(request.headers.get('x-admin-pass') || '', env.ADMIN_PASS));
+    const mine = !!row && ((!!key && (await sha256(key)) === row.key_hash) || adminOk);
 
     if (method === 'GET') {
       if (!row) return json({ exists: false });
@@ -115,6 +116,8 @@ export const onRequest: PagesFunction<Env> = async ({ request, env, params }) =>
     }
     if (method === 'PUT') {
       if (await isLocked(db, ym)) return fail(423, '本月已截止，不能再修改');
+      // 班长 carries 40% of the weight, so only the 班长 passcode can submit as 班长
+      if (role === 'leader' && !adminOk) return fail(401, '以班长身份提交需要班长口令');
       if (row && !mine) return fail(409, '这个身份已经有人提交过了。如需修改，请找班长重置');
       const scores = JSON.stringify(cleanSheet(roster, role, sub, q.scores));
       const now = Date.now();
