@@ -27,6 +27,8 @@ function randomKey() {
   return [...a].map((b) => b.toString(16).padStart(2, '0')).join('');
 }
 // compare hashes so length/timing says nothing about the passcode
+// the client URI-encodes the passcode so non-ASCII passcodes survive HTTP headers
+function readPass(raw: string | null) { const v = raw || ''; try { return decodeURIComponent(v); } catch { return v; } }
 async function samePass(given: string, expected: string) {
   const [a, b] = await Promise.all([sha256('p:' + given), sha256('p:' + expected)]);
   let d = 0; for (let i = 0; i < a.length; i++) d |= a.charCodeAt(i) ^ b.charCodeAt(i);
@@ -106,7 +108,7 @@ export const onRequest: PagesFunction<Env> = async ({ request, env, params }) =>
     const key = request.headers.get('x-edit-key') || '';
     const row = await db.prepare('SELECT scores, key_hash, updated_at FROM score_sheets WHERE ym = ? AND role = ? AND sub = ?')
       .bind(ym, role, sub).first<{ scores: string; key_hash: string; updated_at: number }>();
-    const adminOk = role === 'leader' && !!env.ADMIN_PASS && (await samePass(request.headers.get('x-admin-pass') || '', env.ADMIN_PASS));
+    const adminOk = role === 'leader' && !!env.ADMIN_PASS && (await samePass(readPass(request.headers.get('x-admin-pass')), env.ADMIN_PASS));
     const mine = !!row && ((!!key && (await sha256(key)) === row.key_hash) || adminOk);
 
     if (method === 'GET') {
@@ -126,27 +128,19 @@ export const onRequest: PagesFunction<Env> = async ({ request, env, params }) =>
         return json({ ok: true, updated_at: now });
       }
       const newKey = randomKey();
-      await db.prepare('INSERT INTO score_sheets (ym, role, sub, scores, key_hash, updated_at) VALUES (?, ?, ?, ?, ?, ?)')
+      // two devices submitting the same identity at once: the second one loses cleanly
+      const ins = await db.prepare('INSERT INTO score_sheets (ym, role, sub, scores, key_hash, updated_at) VALUES (?, ?, ?, ?, ?, ?) ON CONFLICT (ym, role, sub) DO NOTHING')
         .bind(ym, role, sub, scores, await sha256(newKey), now).run();
+      if (!ins.meta.changes) return fail(409, '这个身份刚刚已经有人提交了。如需修改，请找班长重置');
       return json({ ok: true, updated_at: now, key: newKey });
     }
     return fail(405, '不支持');
   }
 
-  /* ---------- first-time roster: allowed without passcode only while the roster is still empty ---------- */
-  if (path === 'seed' && method === 'POST') {
-    const cur = await getRoster(db);
-    if (cur.candidates.length || cur.specs.length) return fail(409, '名单已经设置过了，修改请用班长口令');
-    const roster = { candidates: cleanNames(body.candidates), specs: cleanNames(body.specs) };
-    if (!roster.candidates.length) return fail(400, '名单为空');
-    await setMeta(db, 'roster', JSON.stringify(roster));
-    return json({ ok: true, roster });
-  }
-
   /* ---------- 班长 ---------- */
   if (path === 'admin' && method === 'POST') {
     if (!env.ADMIN_PASS) return fail(503, '还没有设置班长口令');
-    const pass = request.headers.get('x-admin-pass') || '';
+    const pass = readPass(request.headers.get('x-admin-pass'));
     if (!(await samePass(pass, env.ADMIN_PASS))) {
       await new Promise((r) => setTimeout(r, 800));
       return fail(401, '口令不对');
