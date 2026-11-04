@@ -49,6 +49,10 @@
     CANDIDATES = d.roster.candidates || []; SPECS = d.roster.specs || [];
     locked = d.locked; submitted = d.submitted || [];
     $('candCount').textContent = CANDIDATES.length;
+    const empty = !CANDIDATES.length;
+    $('role').disabled = empty && !adminPass;
+    const rn = $('rosterNotice');
+    if (rn) rn.classList.toggle('hidden', !empty);
     renderProgress();
   }
 
@@ -59,7 +63,8 @@
     wrap.classList.remove('hidden');
     $('subRoleLabel').textContent = role === 'spec' ? '专责' : '姓名';
     const opts = role === 'spec' ? SPECS : CANDIDATES;
-    sub.innerHTML = opts.map((o) => `<option value="${esc(o)}">${esc(o)}</option>`).join('');
+    sub.innerHTML = opts.length ? opts.map((o) => `<option value="${esc(o)}">${esc(o)}</option>`).join('') : '<option value="">名单未设置</option>';
+    sub.disabled = !opts.length;
     if (opts.includes(prev)) sub.value = prev;
   }
 
