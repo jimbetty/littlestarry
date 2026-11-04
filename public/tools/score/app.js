@@ -1,3 +1,4 @@
+// 信息班评分系统 · 前端
 (() => {
   const API = '/api/score';
   const $ = (id) => document.getElementById(id);
