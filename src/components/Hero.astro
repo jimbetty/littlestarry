@@ -11,39 +11,35 @@ const phrases = [
   { text: '深夜写的笔记', href: '/blog/', q: '笔记', imgs: [5, 6] },
 ];
 
-// tunnel ring: each tile gets an angle, a depth (e: 0 = far, hugging the headline; 1 = near, at the screen edge),
-// a size/aspect and a little toss. hero.ts places them in 3D every frame.
+// tunnel: cards sit on the wall of a long tube we look straight down (like cosmos.so).
+// th = angle around the tube, d = depth phase (0 = far end, 1 = at the camera); hero.ts flies them toward the viewer.
 let seed = 11;
 const rnd = () => ((seed = (seed * 16807) % 2147483647) / 2147483647);
 const aspects = [[1, 1], [4, 5], [5, 4], [3, 4], [1, 1], [4, 3]];
-// five concentric rings, more cards on the outer (nearer) rings; angles evenly spaced + a little jitter
-const rings = [
-  { e: 0.06, n: 8 }, { e: 0.28, n: 11 }, { e: 0.5, n: 13 }, { e: 0.73, n: 15 }, { e: 0.95, n: 17 },
-];
-const tiles: { th: number; e: number; w: number; h: number; rz: number; img: number; m: number }[] = [];
-rings.forEach((r, ri) => {
-  const off = rnd() * Math.PI * 2;
-  for (let j = 0; j < r.n; j++) {
+const DEPTHS = 9, PER = 8, GA = Math.PI * (3 - Math.sqrt(5));
+const tiles: { th: number; d: number; w: number; h: number; rz: number; img: number; m: number }[] = [];
+for (let di = 0; di < DEPTHS; di++) {
+  for (let j = 0; j < PER; j++) {
+    const n = tiles.length;
     const [aw, ah] = aspects[Math.floor(rnd() * aspects.length)];
-    const base = 96 + rnd() * 34;
-    const k = base / Math.sqrt(aw * ah);
-    const step = (Math.PI * 2) / r.n;
+    const k = (92 + rnd() * 20) / Math.sqrt(aw * ah);
     tiles.push({
-      th: (off + j * step + (rnd() - 0.5) * step * 0.5) % (Math.PI * 2),
-      e: Math.min(1, Math.max(0, r.e + (rnd() - 0.5) * 0.1)),
+      // sunflower spread: golden-angle steps around, even steps in depth, so no two cards bunch up
+      th: (n * GA) % (Math.PI * 2),
+      d: (n + 0.5) / (DEPTHS * PER),
       w: Math.round(aw * k), h: Math.round(ah * k),
-      rz: Math.round((rnd() * 2 - 1) * 30),
-      img: ((tiles.length * 7) % 23) + 1,
-      m: j % 2 === ri % 2 ? 1 : 0,
+      rz: Math.round((rnd() * 2 - 1) * 14),
+      img: ((n * 7) % 23) + 1,
+      m: n % 2,
     });
   }
-});
+}
 ---
 <section class="hero" data-hero>
   <div class="hero-stage" aria-hidden="true">
     <div class="hero-field" data-field>
       {tiles.map((t) => (
-        <span class="tile" data-th={t.th.toFixed(4)} data-e={t.e.toFixed(3)} data-rz={t.rz} data-m={t.m} style={`width:${t.w}px;height:${t.h}px;margin:${-t.h / 2}px 0 0 ${-t.w / 2}px`}>
+        <span class="tile" data-th={t.th.toFixed(4)} data-d={t.d.toFixed(3)} data-rz={t.rz} data-m={t.m} style={`width:${t.w}px;height:${t.h}px;margin:${-t.h / 2}px 0 0 ${-t.w / 2}px`}>
           <img src={`/hero/t${t.img}.webp`} alt="" width="160" height="160" decoding="async" />
         </span>
       ))}
