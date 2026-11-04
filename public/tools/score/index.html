@@ -73,6 +73,7 @@
           <div class="flex items-center gap-2 bg-white px-3 py-2 rounded-xl border border-slate-200 shadow-sm focus-within:ring-2 focus-within:ring-indigo-400">
             <span class="text-xs font-bold uppercase text-slate-400 tracking-wider">我是</span>
             <select id="role" class="bg-transparent border-none text-sm font-medium text-slate-800 focus:ring-0 p-0 pr-6 cursor-pointer">
+              <option value="" selected disabled>请选择身份</option>
               <option value="leader">班长</option>
               <option value="deputy">副班长</option>
               <option value="spec">专责</option>
@@ -111,30 +112,31 @@
               </h2>
               <p class="text-xs text-slate-500 mt-1 pl-3.5">输入分数后点「提交评分」保存到服务器。<b>分数无法超过该项满分。</b>首次提交后，只能在同一台设备上修改。</p>
             </div>
-            <div class="text-right">
-               <div class="text-xs text-slate-400 font-medium uppercase tracking-wider mb-1">当前评分对象</div>
-               <div class="text-xs font-semibold text-slate-600 bg-slate-100 px-2 py-1 rounded"><span id="candCount">-</span>人名单</div>
+            <div class="text-right shrink-0 ml-4">
+               <div class="text-xs text-slate-400 font-medium uppercase tracking-wider mb-1 whitespace-nowrap">当前评分对象</div>
+               <div class="text-xs font-semibold text-slate-600 bg-slate-100 px-2 py-1 rounded whitespace-nowrap"><span id="candCount">-</span>人名单</div>
             </div>
           </div>
 
           <div id="sheetNote" class="hidden px-6 py-3 text-sm border-b"></div>
-          <div class="overflow-x-auto">
+          <div id="scoreCards" class="hidden divide-y divide-slate-100"></div>
+          <div id="scoreTableWrap" class="overflow-x-auto">
             <table class="w-full text-left text-sm" id="scoreTable">
               <thead>
                 <tr class="bg-slate-800 text-slate-300">
-                  <th class="p-4 font-medium sticky left-0 bg-slate-800 z-10 w-24 border-r border-slate-700 shadow-[4px_0_8px_-2px_rgba(0,0,0,0.3)]">员工姓名</th>
-                  <th class="p-3 font-medium text-center min-w-[90px] text-blue-200">A1<br/><span class="text-[10px] opacity-60">质量(15)</span></th>
-                  <th class="p-3 font-medium text-center min-w-[90px] text-blue-200">A2<br/><span class="text-[10px] opacity-60">效率(10)</span></th>
-                  <th class="p-3 font-medium text-center min-w-[90px] text-blue-200">A3<br/><span class="text-[10px] opacity-60">安全(10)</span></th>
-                  <th class="p-3 font-medium text-center min-w-[90px] text-indigo-200 bg-slate-800/50">B1<br/><span class="text-[10px] opacity-60">娴熟(10)</span></th>
-                  <th class="p-3 font-medium text-center min-w-[90px] text-indigo-200 bg-slate-800/50">B2<br/><span class="text-[10px] opacity-60">学习(10)</span></th>
-                  <th class="p-3 font-medium text-center min-w-[90px] text-indigo-200 bg-slate-800/50">B3<br/><span class="text-[10px] opacity-60">创新(5)</span></th>
-                  <th class="p-3 font-medium text-center min-w-[90px] text-emerald-200">C1<br/><span class="text-[10px] opacity-60">纪律(10)</span></th>
-                  <th class="p-3 font-medium text-center min-w-[90px] text-emerald-200">C2<br/><span class="text-[10px] opacity-60">主动(10)</span></th>
-                  <th class="p-3 font-medium text-center min-w-[90px] text-emerald-200">C3<br/><span class="text-[10px] opacity-60">责任(5)</span></th>
-                  <th class="p-3 font-medium text-center min-w-[90px] text-amber-200 bg-slate-800/50">D1<br/><span class="text-[10px] opacity-60">配合(8)</span></th>
-                  <th class="p-3 font-medium text-center min-w-[90px] text-amber-200 bg-slate-800/50">D2<br/><span class="text-[10px] opacity-60">分享(7)</span></th>
-                  <th class="p-3 font-bold text-center w-20 bg-slate-900 text-white sticky right-0 shadow-[-4px_0_8px_-2px_rgba(0,0,0,0.3)]">总分</th>
+                  <th class="p-4 font-medium sticky left-0 bg-slate-800 z-10 w-24 min-w-[6rem] whitespace-nowrap border-r border-slate-700 shadow-[4px_0_8px_-2px_rgba(0,0,0,0.3)]">员工姓名</th>
+                  <th class="p-3 font-medium text-center min-w-[68px] text-blue-200">A1<br/><span class="text-[10px] opacity-60">质量(15)</span></th>
+                  <th class="p-3 font-medium text-center min-w-[68px] text-blue-200">A2<br/><span class="text-[10px] opacity-60">效率(10)</span></th>
+                  <th class="p-3 font-medium text-center min-w-[68px] text-blue-200">A3<br/><span class="text-[10px] opacity-60">安全(10)</span></th>
+                  <th class="p-3 font-medium text-center min-w-[68px] text-indigo-200 bg-slate-800/50">B1<br/><span class="text-[10px] opacity-60">娴熟(10)</span></th>
+                  <th class="p-3 font-medium text-center min-w-[68px] text-indigo-200 bg-slate-800/50">B2<br/><span class="text-[10px] opacity-60">学习(10)</span></th>
+                  <th class="p-3 font-medium text-center min-w-[68px] text-indigo-200 bg-slate-800/50">B3<br/><span class="text-[10px] opacity-60">创新(5)</span></th>
+                  <th class="p-3 font-medium text-center min-w-[68px] text-emerald-200">C1<br/><span class="text-[10px] opacity-60">纪律(10)</span></th>
+                  <th class="p-3 font-medium text-center min-w-[68px] text-emerald-200">C2<br/><span class="text-[10px] opacity-60">主动(10)</span></th>
+                  <th class="p-3 font-medium text-center min-w-[68px] text-emerald-200">C3<br/><span class="text-[10px] opacity-60">责任(5)</span></th>
+                  <th class="p-3 font-medium text-center min-w-[68px] text-amber-200 bg-slate-800/50">D1<br/><span class="text-[10px] opacity-60">配合(8)</span></th>
+                  <th class="p-3 font-medium text-center min-w-[68px] text-amber-200 bg-slate-800/50">D2<br/><span class="text-[10px] opacity-60">分享(7)</span></th>
+                  <th class="p-3 font-bold text-center w-20 min-w-[4.5rem] whitespace-nowrap bg-slate-900 text-white sticky right-0 shadow-[-4px_0_8px_-2px_rgba(0,0,0,0.3)]">总分</th>
                 </tr>
               </thead>
               <tbody id="scoreTbody" class="divide-y divide-slate-100"></tbody>
