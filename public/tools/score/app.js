@@ -32,7 +32,8 @@
     if (!res.ok) throw Object.assign(new Error(data.error || '网络出错了，请稍后再试'), { status: res.status });
     return data;
   }
-  const admin = (body) => api('/admin', { method: 'POST', headers: { 'x-admin-pass': adminPass }, body: JSON.stringify({ ym, ...body }) });
+  const passHdr = () => encodeURIComponent(adminPass);
+  const admin = (body) => api('/admin', { method: 'POST', headers: { 'x-admin-pass': passHdr() }, body: JSON.stringify({ ym, ...body }) });
 
   function note(text, tone) {
     const el = $('sheetNote');
@@ -68,7 +69,9 @@
     if (opts.includes(prev)) sub.value = prev;
   }
 
+  let sheetSeq = 0;
   async function loadMySheet() {
+    const seq = ++sheetSeq;
     dirty = false;
     if (!CANDIDATES.length) {
       bundle = {}; canEdit = false; renderScoreTable();
@@ -79,9 +82,11 @@
     const { role, sub } = who();
     if (!role) { bundle = blankBundle(); canEdit = false; renderScoreTable(); note('先在上方选择你的身份。', 'info'); return; }
     if (role !== 'leader' && role !== 'deputy' && !sub) { bundle = blankBundle(); canEdit = false; renderScoreTable(); return; }
+    if (role === 'leader' && !adminPass) { bundle = blankBundle(); canEdit = false; renderScoreTable(); note('班长身份需要先输入班长口令（点右上角「班长查看汇总」）。', 'warn'); return; }
     const key = localStorage.getItem(keyStoreId(role, sub)) || '';
     try {
-      const d = await api(`/sheet?ym=${ym}&role=${role}&sub=${encodeURIComponent(sub)}`, { headers: { 'x-edit-key': key, ...(role === 'leader' && adminPass ? { 'x-admin-pass': adminPass } : {}) } });
+      const d = await api(`/sheet?ym=${ym}&role=${role}&sub=${encodeURIComponent(sub)}`, { headers: { 'x-edit-key': key, ...(role === 'leader' && adminPass ? { 'x-admin-pass': passHdr() } : {}) } });
+      if (seq !== sheetSeq) return;
       if (!d.exists) { bundle = blankBundle(); canEdit = !locked; note(locked ? '本月已截止。' : '', 'warn'); }
       else if (d.mine) {
         bundle = Object.assign(blankBundle(), d.scores); canEdit = !locked;
@@ -90,7 +95,7 @@
         bundle = blankBundle(); canEdit = false;
         note(role === 'leader' ? '班长评分已提交。登录班长后可以查看和修改。' : '这个身份已经提交过了。如果是你本人提交、现在换了设备，或者选错了身份，请找班长重置。', 'warn');
       }
-    } catch (e) { bundle = blankBundle(); canEdit = false; note(e.message, 'err'); }
+    } catch (e) { if (seq !== sheetSeq) return; bundle = blankBundle(); canEdit = false; note(e.message, 'err'); }
     renderScoreTable();
   }
 
@@ -185,12 +190,12 @@
     if (!canEdit) return;
     if (document.activeElement && document.activeElement.blur) document.activeElement.blur();
     const { role, sub } = who();
-    if (role === 'leader' && !adminPass) { await login(); if (!adminPass) return; }
+    if (role === 'leader' && !adminPass) return;
     const btn = $('saveRole'), orig = btn.innerHTML;
     btn.disabled = true;
     try {
       const key = localStorage.getItem(keyStoreId(role, sub)) || '';
-      const d = await api('/sheet', { method: 'PUT', headers: { 'x-edit-key': key, ...(role === 'leader' ? { 'x-admin-pass': adminPass } : {}) }, body: JSON.stringify({ ym, role, sub, scores: bundle }) });
+      const d = await api('/sheet', { method: 'PUT', headers: { 'x-edit-key': key, ...(role === 'leader' ? { 'x-admin-pass': passHdr() } : {}) }, body: JSON.stringify({ ym, role, sub, scores: bundle }) });
       if (d.key) localStorage.setItem(keyStoreId(role, sub), d.key);
       dirty = false;
       btn.innerHTML = '<svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg> 已提交';
@@ -206,6 +211,7 @@
   /* ---------------- progress (everyone sees who has submitted, never the scores) ---------------- */
   function renderProgress() {
     const has = (role, sub) => submitted.some((s) => s.role === role && s.sub === sub);
+    const nSpec = SPECS.filter((s) => has('spec', s)).length, nPeer = CANDIDATES.filter((c) => has('peer', c)).length;
     const groups = [
       ['班长', [['leader', '', '班长']]],
       ['副班长', [['deputy', '', '副班长']]],
@@ -224,7 +230,7 @@
     }).join('<div class="h-2"></div>');
     $('lockNote').classList.toggle('hidden', !locked);
     const lb = $('lockMonth'); if (lb) lb.textContent = locked ? '重新开放本月' : '截止本月';
-    const st = `状态：班长${has('leader', '') ? '✓' : '✗'} 副班${has('deputy', '') ? '✓' : '–'} 专责${submitted.filter((s) => s.role === 'spec').length}/${SPECS.length} 互评${submitted.filter((s) => s.role === 'peer').length}/${CANDIDATES.length}`;
+    const st = `状态：班长${has('leader', '') ? '✓' : '✗'} 副班${has('deputy', '') ? '✓' : '–'} 专责${nSpec}/${SPECS.length} 互评${nPeer}/${CANDIDATES.length}`;
     $('status').textContent = st;
   }
 
@@ -233,15 +239,16 @@
     const p = adminPass || prompt('请输入班长口令');
     if (!p) return;
     adminPass = p;
-    try { await loadAll(); sessionStorage.setItem('score_admin', p); await loadMySheet(); }
+    try { await loadAll(); sessionStorage.setItem('score_admin', p); $('role').disabled = false; if (who().role === 'leader') await loadMySheet(); }
     catch (e) { adminPass = ''; sessionStorage.removeItem('score_admin'); alert(e.message); }
   }
   function logout() {
     adminPass = ''; state = null; sessionStorage.removeItem('score_admin');
     for (const id of ['adminPanel', 'exportCsv', 'clearMonth', 'rankBox']) $(id).classList.add('hidden');
     $('rankGate').classList.remove('hidden'); $('adminLogin').classList.remove('hidden');
+    $('role').disabled = !CANDIDATES.length;
     renderProgress();
-    loadMySheet();
+    if (who().role === 'leader') loadMySheet();
   }
   async function loadAll() {
     const d = await admin({ action: 'all' });
@@ -315,7 +322,7 @@
     }).join('');
   }
 
-  const csvCell = (s) => { s = String(s ?? ''); return /[,"\n]/.test(s) ? `"${s.replaceAll('"', '""')}"` : s; };
+  const csvCell = (s) => { s = String(s ?? ''); return /[,"\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s; };
   function exportCSV() {
     if (!state) return;
     const { agg } = calcAggregates();
@@ -347,7 +354,7 @@
 
   $('month').value = ym;
   let lastRole = $('role').value, lastSub = '';
-  $('role').addEventListener('change', () => { if (!guard()) { $('role').value = lastRole; return; } lastRole = $('role').value; renderSubRoleOptions(); lastSub = $('subRole').value; loadMySheet(); });
+  $('role').addEventListener('change', () => { if (!guard()) { $('role').value = lastRole; return; } lastRole = $('role').value; renderSubRoleOptions(); lastSub = $('subRole').value; if (lastRole === 'leader' && !adminPass) login(); loadMySheet(); });
   $('subRole').addEventListener('change', () => { if (!guard()) { $('subRole').value = lastSub; return; } lastSub = $('subRole').value; loadMySheet(); });
   $('month').addEventListener('change', () => { if (!guard()) { $('month').value = ym; return; } ym = $('month').value || ymNow(); refresh(); });
   $('saveRole').addEventListener('click', submit);
@@ -358,6 +365,7 @@
   $('clearMonth').addEventListener('click', () => adminAct({ action: 'clear' }, `⚠️ 危险操作\n\n确定清空 ${ym} 所有人的评分吗？`));
   $('lockMonth').addEventListener('click', () => adminAct({ action: 'lock', locked: !locked }, locked ? '重新开放后大家可以继续修改，确定吗？' : '截止后所有人都不能再修改，确定吗？'));
   $('saveRoster').addEventListener('click', () => {
+    if (!guard()) return;
     const split = (s) => s.split(/[,，、\s]+/).map((x) => x.trim()).filter(Boolean);
     adminAct({ action: 'roster', candidates: split($('rosterCands').value), specs: split($('rosterSpecs').value) });
   });
@@ -366,7 +374,8 @@
     const [role, sub] = b.dataset.reset.split('|');
     adminAct({ action: 'reset', role, sub }, `重置「${ROLE_NAME[role]}${sub ? ' · ' + sub : ''}」本月的评分？对方需要重新填写。`);
   });
-  mobile.addEventListener('change', () => { if (bundle) renderScoreTable(); });
+  const onMq = () => { if (bundle) renderScoreTable(); };
+  if (mobile.addEventListener) mobile.addEventListener('change', onMq); else mobile.addListener(onMq);
   window.addEventListener('beforeunload', (e) => { if (dirty) { e.preventDefault(); e.returnValue = ''; } });
   refresh();
 })();
