@@ -247,8 +247,8 @@ h2 { font-size: clamp(24px, 3vw, 32px); letter-spacing: -0.02em; margin: 0 0 24p
   display: flex; align-items: center; justify-content: center; overflow: clip;
   padding: 96px 20px 80px;
 }
-.hero-stage { position: absolute; inset: 0; perspective: 1000px; perspective-origin: 50% 50%; pointer-events: none; overflow: hidden; }
-.hero-field { position: absolute; left: 50%; top: 50%; width: 0; height: 0; transform-style: preserve-3d; will-change: transform; }
+.hero-stage { position: absolute; inset: 0; perspective: 1000px; perspective-origin: 50% 42%; pointer-events: none; overflow: hidden; }
+.hero-field { position: absolute; left: 50%; top: 42%; width: 0; height: 0; transform-style: preserve-3d; will-change: transform; }
 .tile {
   position: absolute; left: 0; top: 0; display: block;
   border-radius: 16px; overflow: hidden; background: var(--card);
