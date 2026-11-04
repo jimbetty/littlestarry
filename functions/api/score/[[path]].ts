@@ -133,6 +133,16 @@ export const onRequest: PagesFunction<Env> = async ({ request, env, params }) =>
     return fail(405, '不支持');
   }
 
+  /* ---------- first-time roster: allowed without passcode only while the roster is still empty ---------- */
+  if (path === 'seed' && method === 'POST') {
+    const cur = await getRoster(db);
+    if (cur.candidates.length || cur.specs.length) return fail(409, '名单已经设置过了，修改请用班长口令');
+    const roster = { candidates: cleanNames(body.candidates), specs: cleanNames(body.specs) };
+    if (!roster.candidates.length) return fail(400, '名单为空');
+    await setMeta(db, 'roster', JSON.stringify(roster));
+    return json({ ok: true, roster });
+  }
+
   /* ---------- 班长 ---------- */
   if (path === 'admin' && method === 'POST') {
     if (!env.ADMIN_PASS) return fail(503, '还没有设置班长口令');
