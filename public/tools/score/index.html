@@ -1,0 +1,256 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>信息班评分系统</title>
+  <meta name="robots" content="noindex, nofollow" />
+  <link rel="stylesheet" href="/tools/score/app.css" />
+  <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Noto Sans SC', sans-serif; }
+    ::-webkit-scrollbar { width: 8px; height: 8px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+    ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+    input[type=number]::-webkit-inner-spin-button, 
+    input[type=number]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+  </style>
+</head>
+<body class="bg-slate-50 text-slate-800 min-h-screen selection:bg-indigo-100 selection:text-indigo-700">
+
+  <div id="bgDecor" aria-hidden="true" class="pointer-events-none fixed inset-0 -z-10 overflow-hidden">
+    <div class="absolute top-0 left-1/4 h-96 w-96 rounded-full bg-blue-400/20 blur-[100px] mix-blend-multiply animate-pulse"></div>
+    <div class="absolute bottom-0 right-1/4 h-96 w-96 rounded-full bg-indigo-400/20 blur-[100px] mix-blend-multiply animate-pulse" style="animation-delay: 2s"></div>
+    <div class="absolute top-1/3 right-10 h-72 w-72 rounded-full bg-emerald-300/20 blur-[80px] mix-blend-multiply"></div>
+  </div>
+
+  <div class="max-w-[1400px] mx-auto p-4 md:p-6 space-y-6">
+    
+    <header class="bg-white/80 backdrop-blur-xl rounded-3xl shadow-xl shadow-slate-200/50 border border-white/50 p-6 md:p-8 relative overflow-hidden group">
+      <div class="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-blue-500 via-indigo-500 to-emerald-500"></div>
+      
+      <div class="flex flex-col lg:flex-row justify-between items-start gap-6">
+        <div class="space-y-4 max-w-2xl">
+          <div>
+            <div class="flex items-center gap-3 mb-2">
+              <span class="px-2.5 py-0.5 rounded-full text-xs font-bold bg-indigo-50 text-indigo-600 border border-indigo-100 tracking-wide">2026年度</span>
+              <span class="px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-50 text-emerald-600 border border-emerald-100 tracking-wide">在线版</span>
+            </div>
+            <h1 class="text-3xl md:text-4xl font-extrabold text-slate-900 tracking-tight leading-tight">
+              信息班评分系统
+            </h1>
+            <p class="text-slate-500 mt-2 text-sm leading-relaxed max-w-xl">
+              计算规则：<b>(班长+副班均分) 40%</b> + <b>专责 30%</b> + <b>互评 30%</b>。
+            </p>
+          </div>
+          
+          <div class="flex items-center gap-3 bg-slate-50/80 p-1.5 rounded-xl border border-slate-200/60 w-fit">
+            <div class="flex items-center gap-2 px-3 py-1.5 bg-white rounded-lg shadow-sm border border-slate-100">
+              <svg class="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
+              <input id="month" type="month" class="bg-transparent border-none text-sm font-semibold text-slate-700 focus:ring-0 p-0 cursor-pointer"/>
+            </div>
+            <button id="clearMonth" class="hidden px-3 py-1.5 text-xs font-medium text-red-600 hover:bg-red-50 rounded-lg transition-colors flex items-center gap-1">
+              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+              清空本月
+            </button>
+          </div>
+        </div>
+
+        <div class="flex flex-col gap-3 w-full lg:w-auto">
+          <button id="adminLogin" class="w-full inline-flex items-center justify-center px-4 py-2.5 text-sm font-medium text-indigo-600 transition-all duration-200 bg-indigo-50 border border-indigo-200 rounded-xl hover:bg-indigo-100 hover:border-indigo-300">
+            <svg class="w-4 h-4 mr-2 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path></svg>
+            班长查看汇总
+          </button>
+          <button id="exportCsv" class="hidden w-full inline-flex items-center justify-center px-4 py-2.5 text-sm font-medium text-emerald-700 transition-all duration-200 bg-white border border-emerald-200 rounded-xl hover:bg-emerald-50 hover:text-emerald-800 shadow-sm">
+            <svg class="w-4 h-4 mr-2 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
+            下载最终CSV报表
+          </button>
+        </div>
+      </div>
+
+      <div class="mt-8 bg-slate-50 rounded-2xl p-4 border border-slate-200 flex flex-col md:flex-row items-center justify-between gap-4 shadow-inner">
+        <div class="flex flex-wrap items-center gap-3 w-full md:w-auto">
+          <div class="flex items-center gap-2 bg-white px-3 py-2 rounded-xl border border-slate-200 shadow-sm focus-within:ring-2 focus-within:ring-indigo-400">
+            <span class="text-xs font-bold uppercase text-slate-400 tracking-wider">我是</span>
+            <select id="role" class="bg-transparent border-none text-sm font-medium text-slate-800 focus:ring-0 p-0 pr-6 cursor-pointer">
+              <option value="leader">班长</option>
+              <option value="deputy">副班长</option>
+              <option value="spec">专责</option>
+              <option value="peer">一般工（互评）</option>
+            </select>
+          </div>
+
+          <div id="subRoleWrap" class="flex items-center gap-2 bg-white px-3 py-2 rounded-xl border border-slate-200 shadow-sm focus-within:ring-2 focus-within:ring-indigo-400">
+            <span id="subRoleLabel" class="text-xs font-bold uppercase text-slate-400 tracking-wider">编号</span>
+            <select id="subRole" class="bg-transparent border-none text-sm font-medium text-slate-800 focus:ring-0 p-0 pr-6 cursor-pointer"></select>
+          </div>
+        </div>
+
+        <div class="flex items-center gap-3 w-full md:w-auto justify-end">
+          <span id="status" class="hidden md:inline-block text-xs font-medium px-3 py-1 bg-slate-200 text-slate-600 rounded-lg">状态加载中...</span>
+          <button id="saveRole" class="flex-1 md:flex-none inline-flex items-center justify-center px-6 py-2.5 text-sm font-semibold text-white transition-all bg-indigo-600 rounded-xl hover:bg-indigo-700 active:scale-[0.98] shadow-lg shadow-indigo-200">
+            <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
+            提交评分
+          </button>
+        </div>
+        <div class="md:hidden w-full text-center">
+             <span id="status-mobile" class="text-xs text-slate-500"></span>
+             <script>const $status=document.getElementById('status');const $statusM=document.getElementById('status-mobile');const obs=new MutationObserver(()=>{$statusM.textContent=$status.textContent});obs.observe($status,{childList:true});</script>
+        </div>
+      </div>
+    </header>
+
+    <div class="grid grid-cols-1 xl:grid-cols-4 gap-6">
+      <main class="xl:col-span-3 space-y-6">
+        <section class="bg-white rounded-3xl shadow-xl shadow-slate-200/50 border border-slate-100 overflow-hidden">
+          <div class="p-6 border-b border-slate-100 flex justify-between items-center bg-gradient-to-r from-slate-50 to-white">
+            <div>
+              <h2 class="text-lg font-bold text-slate-800 flex items-center gap-2">
+                <span class="w-1.5 h-6 rounded-full bg-indigo-500 block"></span>
+                员工评分表
+              </h2>
+              <p class="text-xs text-slate-500 mt-1 pl-3.5">输入分数后点「提交评分」保存到服务器。<b>分数无法超过该项满分。</b>首次提交后，只能在同一台设备上修改。</p>
+            </div>
+            <div class="text-right">
+               <div class="text-xs text-slate-400 font-medium uppercase tracking-wider mb-1">当前评分对象</div>
+               <div class="text-xs font-semibold text-slate-600 bg-slate-100 px-2 py-1 rounded"><span id="candCount">-</span>人名单</div>
+            </div>
+          </div>
+
+          <div id="sheetNote" class="hidden px-6 py-3 text-sm border-b"></div>
+          <div class="overflow-x-auto">
+            <table class="w-full text-left text-sm" id="scoreTable">
+              <thead>
+                <tr class="bg-slate-800 text-slate-300">
+                  <th class="p-4 font-medium sticky left-0 bg-slate-800 z-10 w-24 border-r border-slate-700 shadow-[4px_0_8px_-2px_rgba(0,0,0,0.3)]">员工姓名</th>
+                  <th class="p-3 font-medium text-center min-w-[90px] text-blue-200">A1<br/><span class="text-[10px] opacity-60">质量(15)</span></th>
+                  <th class="p-3 font-medium text-center min-w-[90px] text-blue-200">A2<br/><span class="text-[10px] opacity-60">效率(10)</span></th>
+                  <th class="p-3 font-medium text-center min-w-[90px] text-blue-200">A3<br/><span class="text-[10px] opacity-60">安全(10)</span></th>
+                  <th class="p-3 font-medium text-center min-w-[90px] text-indigo-200 bg-slate-800/50">B1<br/><span class="text-[10px] opacity-60">娴熟(10)</span></th>
+                  <th class="p-3 font-medium text-center min-w-[90px] text-indigo-200 bg-slate-800/50">B2<br/><span class="text-[10px] opacity-60">学习(10)</span></th>
+                  <th class="p-3 font-medium text-center min-w-[90px] text-indigo-200 bg-slate-800/50">B3<br/><span class="text-[10px] opacity-60">创新(5)</span></th>
+                  <th class="p-3 font-medium text-center min-w-[90px] text-emerald-200">C1<br/><span class="text-[10px] opacity-60">纪律(10)</span></th>
+                  <th class="p-3 font-medium text-center min-w-[90px] text-emerald-200">C2<br/><span class="text-[10px] opacity-60">主动(10)</span></th>
+                  <th class="p-3 font-medium text-center min-w-[90px] text-emerald-200">C3<br/><span class="text-[10px] opacity-60">责任(5)</span></th>
+                  <th class="p-3 font-medium text-center min-w-[90px] text-amber-200 bg-slate-800/50">D1<br/><span class="text-[10px] opacity-60">配合(8)</span></th>
+                  <th class="p-3 font-medium text-center min-w-[90px] text-amber-200 bg-slate-800/50">D2<br/><span class="text-[10px] opacity-60">分享(7)</span></th>
+                  <th class="p-3 font-bold text-center w-20 bg-slate-900 text-white sticky right-0 shadow-[-4px_0_8px_-2px_rgba(0,0,0,0.3)]">总分</th>
+                </tr>
+              </thead>
+              <tbody id="scoreTbody" class="divide-y divide-slate-100"></tbody>
+            </table>
+          </div>
+        </section>
+
+        <section class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div class="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm hover:shadow-md transition-shadow">
+            <h3 class="font-bold text-blue-700 mb-3 flex items-center gap-2 text-sm uppercase tracking-wide">
+              <span class="p-1.5 bg-blue-100 rounded text-blue-600"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"></path></svg></span>
+              A. 业绩与效能 (35分)
+            </h3>
+            <ul class="space-y-2 text-xs text-slate-600 leading-relaxed pl-1">
+              <li class="flex gap-2"><span class="font-bold text-slate-800 min-w-[3rem]">A1 质量</span> <span>无差错/无返工 (失误-3，重大0分)</span></li>
+              <li class="flex gap-2"><span class="font-bold text-slate-800 min-w-[3rem]">A2 效率</span> <span>提前/准时，优化流程 (延误-3/次)</span></li>
+              <li class="flex gap-2"><span class="font-bold text-slate-800 min-w-[3rem]">A3 安全</span> <span>无违章 (主动报隐患+2，违章扣分)</span></li>
+            </ul>
+          </div>
+          <div class="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm hover:shadow-md transition-shadow">
+            <h3 class="font-bold text-indigo-700 mb-3 flex items-center gap-2 text-sm uppercase tracking-wide">
+              <span class="p-1.5 bg-indigo-100 rounded text-indigo-600"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19.428 15.428a2 2 0 00-1.022-.547l-2.384-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z"></path></svg></span>
+              B. 技能与成长 (25分)
+            </h3>
+            <ul class="space-y-2 text-xs text-slate-600 leading-relaxed pl-1">
+              <li class="flex gap-2"><span class="font-bold text-slate-800 min-w-[3rem]">B1 娴熟</span> <span>技术能手，独立处理复杂问题</span></li>
+              <li class="flex gap-2"><span class="font-bold text-slate-800 min-w-[3rem]">B2 学习</span> <span>主动学习 (考证/分享有证据可加分)</span></li>
+              <li class="flex gap-2"><span class="font-bold text-slate-800 min-w-[3rem]">B3 创新</span> <span>建议被采纳/小改小革</span></li>
+            </ul>
+          </div>
+          <div class="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm hover:shadow-md transition-shadow">
+             <h3 class="font-bold text-emerald-700 mb-3 flex items-center gap-2 text-sm uppercase tracking-wide">
+              <span class="p-1.5 bg-emerald-100 rounded text-emerald-600"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg></span>
+              C. 态度与责任 (25分)
+            </h3>
+            <ul class="space-y-2 text-xs text-slate-600 leading-relaxed pl-1">
+              <li class="flex gap-2"><span class="font-bold text-slate-800 min-w-[3rem]">C1 纪律</span> <span>全勤无迟到早退 (违纪一次-2)</span></li>
+              <li class="flex gap-2"><span class="font-bold text-slate-800 min-w-[3rem]">C2 主动</span> <span>无需督促，困难任务不推诿</span></li>
+              <li class="flex gap-2"><span class="font-bold text-slate-800 min-w-[3rem]">C3 责任</span> <span>主人翁意识，对结果负责</span></li>
+            </ul>
+          </div>
+          <div class="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm hover:shadow-md transition-shadow">
+             <h3 class="font-bold text-amber-700 mb-3 flex items-center gap-2 text-sm uppercase tracking-wide">
+              <span class="p-1.5 bg-amber-100 rounded text-amber-600"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"></path></svg></span>
+              D. 协作与影响 (15分)
+            </h3>
+            <ul class="space-y-2 text-xs text-slate-600 leading-relaxed pl-1">
+              <li class="flex gap-2"><span class="font-bold text-slate-800 min-w-[3rem]">D1 沟通</span> <span>积极沟通，支持同事工作</span></li>
+              <li class="flex gap-2"><span class="font-bold text-slate-800 min-w-[3rem]">D2 辅导</span> <span>分享经验，帮助新人或弱项同事</span></li>
+            </ul>
+          </div>
+        </section>
+      </main>
+
+      <aside class="space-y-6">
+        <div class="bg-white rounded-2xl shadow-lg shadow-slate-200/50 p-5 border border-slate-100">
+          <div class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3">我的打分统计</div>
+          <div id="roleTotals" class="space-y-3"></div>
+        </div>
+
+        <div class="bg-slate-900 rounded-2xl shadow-xl p-5 text-white relative overflow-hidden">
+          <div class="absolute top-0 right-0 w-32 h-32 bg-indigo-500 rounded-full blur-[60px] opacity-20"></div>
+          
+          <div id="rankGate" class="relative z-10 text-center py-6">
+            <h3 class="font-bold text-lg mb-1">最终排名</h3>
+            <p class="text-xs text-slate-400 mb-4">汇总结果仅班长可见</p>
+            <button id="adminLogin2" class="px-4 py-2 text-sm font-medium bg-white/10 hover:bg-white/20 rounded-xl transition-colors">班长查看</button>
+          </div>
+          <div id="rankBox" class="hidden relative z-10">
+            <h3 class="font-bold text-lg mb-1">最终排名</h3>
+            <div id="aggHint" class="text-[10px] text-slate-400 mb-4 h-4 overflow-hidden text-ellipsis whitespace-nowrap">等待数据汇总...</div>
+            
+            <table class="w-full text-sm" id="resultTable">
+              <thead>
+                <tr class="text-slate-500 text-xs border-b border-slate-700/50">
+                  <th class="pb-2 text-center w-8">#</th>
+                  <th class="pb-2 text-left pl-2">姓名</th>
+                  <th class="pb-2 text-right">得分</th>
+                </tr>
+              </thead>
+              <tbody id="resultTbody" class="divide-y divide-slate-700/50"></tbody>
+            </table>
+            
+            <div class="mt-4 pt-4 border-t border-slate-700/50 text-[10px] text-slate-500 leading-tight">
+              排名生效条件：<br/>
+              1. 班长已提交 (若副班提交则取平均)<br/>
+              2. 专责提交 ≥ 1人<br/>
+              3. 互评提交 ≥ 3人 (去极值)
+            </div>
+          </div>
+        </div>
+        <div class="bg-white rounded-2xl shadow-lg shadow-slate-200/50 p-5 border border-slate-100">
+          <div class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3">本月提交进度</div>
+          <div id="progress" class="space-y-1.5 text-sm"></div>
+          <div id="lockNote" class="hidden mt-3 text-xs font-medium text-amber-700 bg-amber-50 border border-amber-100 rounded-lg px-3 py-2">本月已截止</div>
+        </div>
+
+        <div id="adminPanel" class="hidden bg-white rounded-2xl shadow-lg shadow-slate-200/50 p-5 border border-indigo-100 space-y-4">
+          <div class="flex items-center justify-between">
+            <div class="text-xs font-bold text-indigo-500 uppercase tracking-wider">班长管理</div>
+            <button id="adminLogout" class="text-xs text-slate-400 hover:text-slate-600">退出</button>
+          </div>
+          <button id="lockMonth" class="w-full px-3 py-2 text-sm font-medium rounded-xl border border-slate-200 hover:bg-slate-50">截止本月</button>
+          <div class="space-y-2">
+            <label class="block text-xs font-semibold text-slate-500">被评员工（逗号或换行分隔）</label>
+            <textarea id="rosterCands" rows="3" class="w-full text-sm border border-slate-200 rounded-lg p-2 focus:outline-none focus:ring-2 focus:ring-indigo-400"></textarea>
+            <label class="block text-xs font-semibold text-slate-500">专责</label>
+            <textarea id="rosterSpecs" rows="2" class="w-full text-sm border border-slate-200 rounded-lg p-2 focus:outline-none focus:ring-2 focus:ring-indigo-400"></textarea>
+            <button id="saveRoster" class="w-full px-3 py-2 text-sm font-semibold text-white bg-indigo-600 hover:bg-indigo-700 rounded-xl">保存名单</button>
+            <p class="text-[11px] text-slate-400 leading-snug">名单改了之后，已提交的评分里不在名单上的人会被忽略。</p>
+          </div>
+        </div>
+      </aside>
+    </div>
+  </div>
+
+<script src="/tools/score/app.js" defer></script>
+</body>
+</html>
