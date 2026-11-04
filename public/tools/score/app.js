@@ -22,7 +22,9 @@
   const divItems = (a, d) => (d ? Object.fromEntries(KEYS.map((k) => [k, (a?.[k] ?? 0) / d])) : null);
   const fmt1 = (x) => (x === null || x === undefined ? '-' : Number(x).toFixed(1));
   const fmt2 = (x) => (x === null || x === undefined ? '-' : Number(x).toFixed(2));
-  const who = () => { const role = $('role').value; return { role, sub: role === 'leader' || role === 'deputy' ? '' : $('subRole').value || '' }; };
+  const who = () => { const role = $('role').value || ''; return { role, sub: role === 'leader' || role === 'deputy' || !role ? '' : $('subRole').value || '' }; };
+  const mobile = window.matchMedia('(max-width: 767px)');
+  const step = (v, k) => Math.round(Math.min(MAX[k], Math.max(0, v)) * 2) / 2;
 
   async function api(path, opts = {}) {
     const res = await fetch(API + path, { ...opts, headers: { 'content-type': 'application/json', ...(opts.headers || {}) } });
@@ -53,7 +55,7 @@
   function renderSubRoleOptions() {
     const role = $('role').value, sub = $('subRole'), wrap = $('subRoleWrap');
     const prev = sub.value;
-    if (role === 'leader' || role === 'deputy') { wrap.classList.add('hidden'); sub.innerHTML = ''; return; }
+    if (!role || role === 'leader' || role === 'deputy') { wrap.classList.add('hidden'); sub.innerHTML = ''; return; }
     wrap.classList.remove('hidden');
     $('subRoleLabel').textContent = role === 'spec' ? '专责' : '姓名';
     const opts = role === 'spec' ? SPECS : CANDIDATES;
@@ -65,28 +67,82 @@
     dirty = false;
     if (!CANDIDATES.length) {
       bundle = {}; canEdit = false; renderScoreTable();
-      note(adminPass ? '还没有名单，请在右侧「班长管理」里填好被评员工和专责。' : '班长还没有设置名单，请稍后再来。', 'warn');
+      note(adminPass ? '还没有名单，请在「班长管理」里填好被评员工和专责，然后点保存名单。' : '班长还没有设置名单，请稍后再来。', 'warn');
+      if (adminPass) $('rosterCands').focus();
       return;
     }
     const { role, sub } = who();
+    if (!role) { bundle = blankBundle(); canEdit = false; renderScoreTable(); note('先在上方选择你的身份。', 'info'); return; }
     if (role !== 'leader' && role !== 'deputy' && !sub) { bundle = blankBundle(); canEdit = false; renderScoreTable(); return; }
     const key = localStorage.getItem(keyStoreId(role, sub)) || '';
     try {
-      const d = await api(`/sheet?ym=${ym}&role=${role}&sub=${encodeURIComponent(sub)}`, { headers: { 'x-edit-key': key } });
+      const d = await api(`/sheet?ym=${ym}&role=${role}&sub=${encodeURIComponent(sub)}`, { headers: { 'x-edit-key': key, ...(role === 'leader' && adminPass ? { 'x-admin-pass': adminPass } : {}) } });
       if (!d.exists) { bundle = blankBundle(); canEdit = !locked; note(locked ? '本月已截止。' : '', 'warn'); }
       else if (d.mine) {
         bundle = Object.assign(blankBundle(), d.scores); canEdit = !locked;
         note(locked ? '本月已截止，你的评分已锁定。' : `你已在 ${new Date(d.updated_at).toLocaleString('zh-CN')} 提交，可以继续修改后再提交。`, locked ? 'warn' : 'ok');
       } else {
         bundle = blankBundle(); canEdit = false;
-        note('这个身份已经提交过了。如果是你本人提交、现在换了设备，或者选错了身份，请找班长重置。', 'warn');
+        note(role === 'leader' ? '班长评分已提交。登录班长后可以查看和修改。' : '这个身份已经提交过了。如果是你本人提交、现在换了设备，或者选错了身份，请找班长重置。', 'warn');
       }
     } catch (e) { bundle = blankBundle(); canEdit = false; note(e.message, 'err'); }
     renderScoreTable();
   }
 
   /* ---------------- score table ---------------- */
+  const LABEL = { A1: '质量', A2: '效率', A3: '安全', B1: '娴熟', B2: '学习', B3: '创新', C1: '纪律', C2: '主动', C3: '责任', D1: '配合', D2: '分享' };
+  function makeInput(cand, k, isSelf, onTotal) {
+    const inp = document.createElement('input');
+    inp.type = 'number'; inp.min = 0; inp.max = MAX[k]; inp.step = '0.5'; inp.inputMode = 'decimal';
+    inp.value = bundle[cand][k] ?? 0;
+    inp.className = 'w-14 py-1.5 text-center text-sm font-medium text-slate-700 bg-white border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all shadow-sm disabled:bg-slate-50 disabled:text-slate-400';
+    if (isSelf) { inp.value = 0; bundle[cand][k] = 0; inp.disabled = true; inp.className = 'w-14 py-1.5 text-center bg-slate-50 border-transparent text-slate-300 cursor-not-allowed rounded-lg'; }
+    else if (!canEdit) inp.disabled = true;
+    inp.addEventListener('focus', function () { if (this.value === '0') this.select(); });
+    inp.addEventListener('wheel', function () { this.blur(); }, { passive: true });
+    inp.addEventListener('input', function () {
+      let v = parseFloat(this.value);
+      if (isNaN(v)) v = 0;
+      else { if (v > MAX[k]) { v = MAX[k]; this.value = v; } if (v < 0) { v = 0; this.value = 0; } }
+      bundle[cand][k] = v; dirty = true; onTotal(); renderRoleTotals();
+    });
+    inp.addEventListener('blur', function () {
+      const v = step(parseFloat(this.value) || 0, k);
+      if (String(v) !== this.value) { this.value = v; bundle[cand][k] = v; onTotal(); renderRoleTotals(); }
+    });
+    return inp;
+  }
+  function renderScoreCards() {
+    const box = $('scoreCards'); box.innerHTML = '';
+    const { role, sub } = who();
+    for (const cand of CANDIDATES) {
+      bundle[cand] = bundle[cand] || blankItems();
+      const isSelf = role === 'peer' && sub === cand;
+      const card = document.createElement('div'); card.className = 'p-4';
+      card.innerHTML = `<div class="flex items-center justify-between mb-3"><div class="flex items-center gap-2 font-semibold text-slate-700"><div class="w-8 h-8 rounded-full bg-slate-200 flex items-center justify-center text-xs font-bold text-slate-500">${esc(cand.charAt(0))}</div>${esc(cand)}${isSelf ? '<span class="text-xs font-normal text-slate-400">（本人，不评）</span>' : ''}</div>${isSelf ? '' : `<span data-total-cell class="bg-indigo-100 text-indigo-700 px-2 py-1 rounded-md text-xs font-bold">${sum(bundle[cand]).toFixed(1)}</span>`}</div>`;
+      if (!isSelf) {
+        const grid = document.createElement('div'); grid.className = 'grid grid-cols-4 gap-2';
+        const total = () => { const c = card.querySelector('[data-total-cell]'); if (c) c.textContent = sum(bundle[cand]).toFixed(1); };
+        for (const k of KEYS) {
+          const cell = document.createElement('label'); cell.className = 'flex flex-col items-center gap-1';
+          cell.innerHTML = `<span class="text-[11px] text-slate-500 whitespace-nowrap">${k} ${LABEL[k] || ''}<span class="text-slate-300">/${MAX[k]}</span></span>`;
+          const inp = makeInput(cand, k, false, total); inp.classList.remove('w-14'); inp.classList.add('w-full');
+          cell.appendChild(inp); grid.appendChild(cell);
+        }
+        card.appendChild(grid);
+      }
+      box.appendChild(card);
+    }
+  }
+
   function renderScoreTable() {
+    const useCards = mobile.matches;
+    $('scoreCards').classList.toggle('hidden', !useCards);
+    $('scoreTableWrap').classList.toggle('hidden', useCards);
+    $('saveRole').disabled = !canEdit;
+    $('saveRole').classList.toggle('opacity-50', !canEdit);
+    if (useCards) { $('scoreTbody').innerHTML = ''; renderScoreCards(); renderRoleTotals(); return; }
+    $('scoreCards').innerHTML = '';
     const tbody = $('scoreTbody'); tbody.innerHTML = '';
     const { role, sub } = who();
     for (const cand of CANDIDATES) {
@@ -98,24 +154,10 @@
       left.innerHTML = `<div class="flex items-center gap-2"><div class="w-8 h-8 rounded-full bg-slate-200 flex items-center justify-center text-xs font-bold text-slate-500">${esc(cand.charAt(0))}</div>${esc(cand)}</div>`;
       tr.appendChild(left);
       const isSelf = role === 'peer' && sub === cand;
+      const total = () => { const c = tr.querySelector('[data-total-cell]'); if (c) c.textContent = sum(bundle[cand]).toFixed(1); };
       for (const k of KEYS) {
-        const td = document.createElement('td'); td.className = 'p-2 text-center';
-        const inp = document.createElement('input');
-        inp.type = 'number'; inp.min = 0; inp.max = MAX[k]; inp.step = '0.5'; inp.inputMode = 'decimal';
-        inp.value = bundle[cand][k] ?? 0;
-        inp.className = 'w-16 py-1.5 text-center text-sm font-medium text-slate-700 bg-white border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all shadow-sm disabled:bg-slate-50 disabled:text-slate-400';
-        if (isSelf) { inp.value = 0; bundle[cand][k] = 0; inp.disabled = true; inp.className = 'w-16 py-1.5 text-center bg-slate-50 border-transparent text-slate-300 cursor-not-allowed rounded-lg'; }
-        else if (!canEdit) inp.disabled = true;
-        inp.addEventListener('input', function () {
-          let v = parseFloat(this.value);
-          if (isNaN(v)) v = 0;
-          else { if (v > MAX[k]) { v = MAX[k]; this.value = v; } if (v < 0) { v = 0; this.value = 0; } }
-          bundle[cand][k] = v; dirty = true;
-          const cell = tr.querySelector('[data-total-cell]'); if (cell) cell.textContent = sum(bundle[cand]).toFixed(1);
-          renderRoleTotals();
-        });
-        inp.addEventListener('blur', function () { if (this.value === '') { this.value = 0; bundle[cand][k] = 0; renderRoleTotals(); } });
-        td.appendChild(inp); tr.appendChild(td);
+        const td = document.createElement('td'); td.className = 'px-1 py-2 text-center';
+        td.appendChild(makeInput(cand, k, isSelf, total)); tr.appendChild(td);
       }
       const tdTotal = document.createElement('td');
       tdTotal.className = 'p-3 font-bold text-center text-indigo-900 sticky right-0 bg-white group-hover:bg-indigo-50 shadow-[-2px_0_5px_-2px_rgba(0,0,0,0.05)]';
@@ -123,8 +165,6 @@
       tr.appendChild(tdTotal);
       tbody.appendChild(tr);
     }
-    $('saveRole').disabled = !canEdit;
-    $('saveRole').classList.toggle('opacity-50', !canEdit);
     renderRoleTotals();
   }
 
@@ -138,12 +178,14 @@
 
   async function submit() {
     if (!canEdit) return;
+    if (document.activeElement && document.activeElement.blur) document.activeElement.blur();
     const { role, sub } = who();
+    if (role === 'leader' && !adminPass) { await login(); if (!adminPass) return; }
     const btn = $('saveRole'), orig = btn.innerHTML;
     btn.disabled = true;
     try {
       const key = localStorage.getItem(keyStoreId(role, sub)) || '';
-      const d = await api('/sheet', { method: 'PUT', headers: { 'x-edit-key': key }, body: JSON.stringify({ ym, role, sub, scores: bundle }) });
+      const d = await api('/sheet', { method: 'PUT', headers: { 'x-edit-key': key, ...(role === 'leader' ? { 'x-admin-pass': adminPass } : {}) }, body: JSON.stringify({ ym, role, sub, scores: bundle }) });
       if (d.key) localStorage.setItem(keyStoreId(role, sub), d.key);
       dirty = false;
       btn.innerHTML = '<svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg> 已提交';
@@ -177,7 +219,7 @@
     }).join('<div class="h-2"></div>');
     $('lockNote').classList.toggle('hidden', !locked);
     const lb = $('lockMonth'); if (lb) lb.textContent = locked ? '重新开放本月' : '截止本月';
-    const st = `状态：班长${has('leader', '') ? '✅' : '❌'} 副班${has('deputy', '') ? '✅' : '⚪'} 专责${submitted.filter((s) => s.role === 'spec').length}/${SPECS.length} 互评${submitted.filter((s) => s.role === 'peer').length}/${CANDIDATES.length}`;
+    const st = `状态：班长${has('leader', '') ? '✓' : '✗'} 副班${has('deputy', '') ? '✓' : '–'} 专责${submitted.filter((s) => s.role === 'spec').length}/${SPECS.length} 互评${submitted.filter((s) => s.role === 'peer').length}/${CANDIDATES.length}`;
     $('status').textContent = st;
   }
 
@@ -186,7 +228,7 @@
     const p = adminPass || prompt('请输入班长口令');
     if (!p) return;
     adminPass = p;
-    try { await loadAll(); sessionStorage.setItem('score_admin', p); }
+    try { await loadAll(); sessionStorage.setItem('score_admin', p); await loadMySheet(); }
     catch (e) { adminPass = ''; sessionStorage.removeItem('score_admin'); alert(e.message); }
   }
   function logout() {
@@ -194,6 +236,7 @@
     for (const id of ['adminPanel', 'exportCsv', 'clearMonth', 'rankBox']) $(id).classList.add('hidden');
     $('rankGate').classList.remove('hidden'); $('adminLogin').classList.remove('hidden');
     renderProgress();
+    loadMySheet();
   }
   async function loadAll() {
     const d = await admin({ action: 'all' });
@@ -260,8 +303,9 @@
     hintEl.className = hint.length ? 'text-[10px] text-amber-400 mb-4 font-mono' : 'text-[10px] text-emerald-400 mb-4 font-mono';
     const arr = CANDIDATES.map((c) => ({ name: c, ...agg[c] })).sort((a, b) => (b.final ?? -1e9) - (a.final ?? -1e9));
     $('resultTbody').innerHTML = arr.map((r, idx) => {
-      const rankColor = ['text-yellow-400', 'text-slate-300', 'text-amber-700'][idx] || 'text-slate-400';
-      const rankIcon = ['🏆', '🥈', '🥉'][idx] || idx + 1;
+      const has = r.final !== null && r.final !== undefined;
+      const rankColor = has ? ['text-yellow-400', 'text-slate-300', 'text-amber-600'][idx] || 'text-slate-400' : 'text-slate-600';
+      const rankIcon = has ? ['🏆', '🥈', '🥉'][idx] || idx + 1 : '–';
       return `<tr class="hover:bg-slate-800/50 transition-colors"><td class="py-3 text-center font-bold ${rankColor}">${rankIcon}</td><td class="py-3 pl-2 font-medium text-slate-200">${esc(r.name)}</td><td class="py-3 text-right font-mono font-bold text-indigo-300">${fmt2(r.final)}</td></tr>`;
     }).join('');
   }
@@ -283,7 +327,7 @@
 
   async function adminAct(body, confirmText) {
     if (confirmText && !confirm(confirmText)) return;
-    try { await admin(body); await loadState(); await loadAll(); await loadMySheet(); }
+    try { await admin(body); await refresh(); }
     catch (e) { alert(e.message); if (e.status === 401) logout(); }
   }
 
@@ -317,6 +361,7 @@
     const [role, sub] = b.dataset.reset.split('|');
     adminAct({ action: 'reset', role, sub }, `重置「${ROLE_NAME[role]}${sub ? ' · ' + sub : ''}」本月的评分？对方需要重新填写。`);
   });
+  mobile.addEventListener('change', () => { if (bundle) renderScoreTable(); });
   window.addEventListener('beforeunload', (e) => { if (dirty) { e.preventDefault(); e.returnValue = ''; } });
   refresh();
 })();
