@@ -7,9 +7,6 @@ const reduce = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
 let cleanup: (() => void) | null = null;
 export function teardownHero() { cleanup?.(); cleanup = null; }
 
-/* superellipse radius: a soft rounded-rectangle around the centre */
-const sr = (c: number, s: number, a: number, b: number, n = 3.2) =>
-  Math.pow(Math.pow(Math.abs(c) / a, n) + Math.pow(Math.abs(s) / b, n), -1 / n);
 const easeOut = (x: number) => (x >= 1 ? 1 : 1 - Math.pow(2, -10 * x));
 
 export function setupHero(firstLoad: boolean) {
@@ -20,59 +17,72 @@ export function setupHero(firstLoad: boolean) {
   const on = (t: EventTarget, ev: string, fn: any, opt?: any) => { t.addEventListener(ev, fn, opt); offs.push(() => t.removeEventListener(ev, fn, opt)); };
   const rm = reduce();
 
-  /* ================= tile tunnel ================= */
-  const P = 1000;                       // must match .hero-stage perspective
+  /* ================= tile tunnel =================
+     A long tube seen from inside. Cards ride its wall toward the camera, the
+     tube turns slowly, and anything that would cover the text fades away. */
+  const P = 1000;                        // must match .hero-stage perspective
+  const SC_FAR = 0.2, SC_NEAR = 1.12;     // perspective scale band a card travels through (even spread on screen)
   const field = hero.querySelector<HTMLElement>('[data-field]')!;
   const inner = hero.querySelector<HTMLElement>('.hero-inner')!;
-  const tiles = [...hero.querySelectorAll<HTMLElement>('.tile')].map((el, i) => ({
-    el, th: +el.dataset.th!, e: +el.dataset.e!, rz: +el.dataset.rz!, m: el.dataset.m === '1',
-    delay: 0, op: -1, i,
+  const tiles = [...hero.querySelectorAll<HTMLElement>('.tile')].map((el) => ({
+    el, th: +el.dataset.th!, d: +el.dataset.d!, rz: +el.dataset.rz!, m: el.dataset.m === '1',
+    hw: el.offsetWidth / 2, hh: el.offsetHeight / 2, delay: 0, op: -1,
   }));
-  let W = 0, H = 0, cx0 = 0, cy0 = 0, small = false;
+  let W = 0, H = 0, vy = 0, rx = 0, ry = 0, small = false;
+  let clear = { l: 0, r: 0, t: 0, b: 0 }, cue = { l: 0, r: 0, t: 0, b: 0 }, sz = 1;
   const layout = () => {
     const r = hero.getBoundingClientRect();
-    W = r.width; H = r.height; small = W < 760;
+    W = r.width; H = r.height; small = W < 760; vy = H * 0.42;
+    rx = small ? W * 0.6 : W * 0.48;     // tube radius (world px at z = 0)
+    ry = small ? H * 0.46 : H * 0.6;
     const ir = inner.getBoundingClientRect();
-    cx0 = small ? W / 2 + 12 : Math.max(ir.width / 2 + 40, W * 0.2); // clear zone half-width (phones: tiles live above/below)
-    cy0 = ir.height / 2 + (small ? 18 : 40);                    // clear zone half-height
+    const px = small ? 8 : 36, py = small ? 10 : 22;
+    clear = { l: ir.left - r.left - px, r: ir.right - r.left + px, t: ir.top - r.top - py, b: ir.bottom - r.top + py };
+    const nr = hero.querySelector<HTMLElement>('.hero-next')!.getBoundingClientRect();
+    cue = { l: nr.left - r.left - 20, r: nr.right - r.left + 20, t: nr.top - r.top - 20, b: nr.bottom - r.top + 20 };
+    sz = small ? 0.72 : 1;
     tiles.forEach((t) => (t.el.hidden = small && !t.m));
   };
   layout();
-  // nearest ring flies in first, then outward
+  const overlap = (b: typeof clear, sx: number, sy: number, hw: number, hh: number) =>
+    (Math.max(0, Math.min(sx + hw, b.r) - Math.max(sx - hw, b.l)) * Math.max(0, Math.min(sy + hh, b.b) - Math.max(sy - hh, b.t))) / (4 * hw * hh);
   const start = performance.now() + (firstLoad ? 120 : 0);
-  tiles.forEach((t) => (t.delay = (1 - t.e) * (firstLoad ? 520 : 260) + Math.random() * 120));
-  const introDur = firstLoad ? 1500 : 900;
+  tiles.forEach((t) => (t.delay = (1 - t.d) * (firstLoad ? 600 : 300) + Math.random() * 120));
+  const introDur = firstLoad ? 1600 : 900;
 
-  const omega = rm ? 0 : 0.012;         // rad per second: one lap ≈ 9 min, calm orbit
+  const omega = rm ? 0 : 0.01;           // tube spin, rad/s
+  const speed = rm ? 0 : 0.006;          // depth phase per second: a card drifts from the far end to the lens in ~3 min
   let tiltX = 0, tiltY = 0, tx = 0, ty = 0;
-  let raf = 0, visible = true, last = performance.now(), angle = 0;
+  let raf = 0, visible = true, last = performance.now(), angle = 0, travel = 0;
+  const smooth = (a: number, b: number, x: number) => { const t = Math.min(1, Math.max(0, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
 
   const frame = (now: number) => {
     const dt = Math.min(64, now - last); last = now;
-    angle += omega * dt / 1000;
+    angle += omega * dt / 1000; travel += speed * dt / 1000;
     tiltX += (tx - tiltX) * 0.06; tiltY += (ty - tiltY) * 0.06;
     field.style.transform = `rotateX(${tiltX.toFixed(3)}deg) rotateY(${tiltY.toFixed(3)}deg)`;
-    const ex = W / 2, ey = H / 2;
     let introDone = true;
     for (const t of tiles) {
       if (t.el.hidden) continue;
-      const th = t.th + angle, c = Math.cos(th), s = Math.sin(th);
-      const rIn = sr(c, s, cx0, cy0);                        // edge of the clear zone at this angle
-      const rOut = sr(c, s, ex, ey, 6) * 1.12;               // just past the screen edge
-      const rho = rIn + Math.max(0, rOut - rIn) * t.e;       // projected distance from centre
+      const ph = (t.d + travel) % 1;
       const k = rm ? 1 : easeOut(Math.max(0, (now - start - t.delay) / introDur));
       if (k < 1) introDone = false;
-      const sc = 0.42 + 0.58 * t.e;                          // perspective scale: far = small
-      const z = P - P / sc - (1 - k) * 2600;                 // intro: fly out of the vanishing point
-      const R = rho / sc;                                     // world radius that projects to rho
-      const tilt = 34 - t.e * 18;                             // far cards lean more toward the centre
+      const th = t.th + angle, c = Math.cos(th), s = Math.sin(th);
+      const scT = (SC_FAR + (SC_NEAR - SC_FAR) * ph) * (0.12 + 0.88 * k);
+      const z = P - P / scT;
+      const x = c * rx, y = s * ry;
+      const sc = scT;
+      // where it lands on screen, to keep the headline, search and CTA clear
+      const sx = W / 2 + x * sc, sy = vy + y * sc, hw = t.hw * sc * sz, hh = t.hh * sc * sz;
+      const cover = Math.max(overlap(clear, sx, sy, hw, hh), overlap(cue, sx, sy, hw, hh));
+      const head = smooth(54, 96, sy);                      // stay out of the header band
+      const depth = smooth(0, 0.18, ph) * (1 - smooth(0.88, 1, ph)); // fade in from the far end, out at the lens
+      const op = Math.round(k * depth * head * (1 - smooth(0, 0.35, cover)) * (0.3 + 0.7 * smooth(0.05, 0.6, ph)) * 100) / 100;
+      // cards lie along the wall: turned to the tangent, leaning in toward the vanishing point
       t.el.style.transform =
-        `translate3d(${(c * R).toFixed(1)}px,${(s * R).toFixed(1)}px,${z.toFixed(1)}px) ` +
-        `rotateY(${(-c * tilt).toFixed(2)}deg) rotateX(${(s * tilt).toFixed(2)}deg) rotateZ(${t.rz}deg)`;
-      // phones: cards only live above and below the text; they fade out as the orbit carries them to the sides
-      const side = small ? Math.min(1, Math.max(0, (Math.abs(s) - 0.45) / 0.25)) : 1;
-      const op = Math.round(k * side * (0.28 + 0.72 * Math.pow(t.e, 0.8)) * 100) / 100;
-      if (op !== t.op) { t.op = op; t.el.style.opacity = String(op); }
+        `translate3d(${x.toFixed(1)}px,${y.toFixed(1)}px,${z.toFixed(1)}px) ` +
+        `rotateZ(${(th * 57.2958 + 90 + t.rz).toFixed(2)}deg) rotateX(-28deg) scale(${sz})`;
+      if (op !== t.op) { t.op = op; t.el.style.opacity = String(op); t.el.style.visibility = op ? '' : 'hidden'; }
     }
     const moving = omega > 0 || !introDone || Math.abs(tx - tiltX) + Math.abs(ty - tiltY) > 0.01;
     raf = visible && !document.hidden && moving ? requestAnimationFrame(frame) : 0;
